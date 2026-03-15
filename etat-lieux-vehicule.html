@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>État des lieux véhicule — Harceleurs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@500&family=Playfair+Display:wght@700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ============================================================
+       RESET & BASE
+    ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      transition: background 0.4s, color 0.4s;
+    }
+
+    /* ============================================================
+       THEME VARIABLES
+    ============================================================ */
+    body.dark {
+      --bg:           #0e0e0e;
+      --bg2:          #141414;
+      --bg3:          #1a1a1a;
+      --border:       #2a2a2a;
+      --border2:      #1e1e1e;
+      --text:         #e8e6e0;
+      --text2:        #aaa;
+      --text3:        #666;
+      --text4:        #555;
+      --accent:       #c8a84b;
+      --accent-bg:    rgba(200,168,75,0.1);
+      --accent-border:rgba(200,168,75,0.25);
+      --input-bg:     #1a1a1a;
+      --input-border: #2a2a2a;
+      --valid:        #4a8c4a;
+      --error:        #c0392b;
+      --error-bg:     #1a0a0a;
+      --prog-bg:      #1e1e1e;
+      --prog-fill:    #c8a84b;
+      --send-bg:      #c8a84b;
+      --send-text:    #0e0e0e;
+      --done-bg:      #0a1a0a;
+      --done-text:    #4a8c4a;
+      --slot-bg:      #141414;
+      --extra-bg:     #1a1a1a;
+      --toggle-bg:    #333;
+    }
+    body.light {
+      --bg:           #f8f6f1;
+      --bg2:          #ffffff;
+      --bg3:          #ffffff;
+      --border:       #e0dbd4;
+      --border2:      #e8e4dc;
+      --text:         #1a1a1a;
+      --text2:        #555;
+      --text3:        #999;
+      --text4:        #bbb;
+      --accent:       #b8860b;
+      --accent-bg:    rgba(200,168,75,0.12);
+      --accent-border:rgba(200,168,75,0.35);
+      --input-bg:     #ffffff;
+      --input-border: #ddd;
+      --valid:        #4a8c4a;
+      --error:        #c0392b;
+      --error-bg:     #fff5f5;
+      --prog-bg:      #e8e4dc;
+      --prog-fill:    #1a1a2e;
+      --send-bg:      #1a1a2e;
+      --send-text:    #ffffff;
+      --done-bg:      #f0faf0;
+      --done-text:    #4a8c4a;
+      --slot-bg:      #ffffff;
+      --extra-bg:     #ffffff;
+      --toggle-bg:    #c8a84b;
+    }
+
+    /* ============================================================
+       LAYOUT
+    ============================================================ */
+    body { background: var(--bg); color: var(--text); }
+
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ============================================================
+       TOP BAR
+    ============================================================ */
+    .top-bar {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 13px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      transition: background 0.4s, border-color 0.4s;
+    }
+    .top-bar-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+
+    /* Clap icon */
+    .clap {
+      width: 24px; height: 24px; border-radius: 3px;
+      display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
+    }
+    body.dark  .clap { background: #fff; }
+    body.light .clap { background: #1a1a1a; }
+    .clap-top {
+      height: 8px;
+      display: flex; align-items: center; gap: 1.5px; padding: 0 2px;
+    }
+    body.dark  .clap-top { background: #111; }
+    body.light .clap-top { background: #f8f6f1; }
+    .clap-stripe { width: 2px; height: 5px; border-radius: 1px; }
+    body.dark  .clap-stripe { background: #fff; }
+    body.light .clap-stripe { background: #1a1a1a; }
+    .clap-bottom { flex: 1; }
+    body.dark  .clap-bottom { background: #fff; }
+    body.light .clap-bottom { background: #1a1a1a; }
+
+    .bar-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 14px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color 0.4s;
+    }
+    .proj-tag {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      padding: 3px 8px;
+      border-radius: 4px;
+      color: var(--accent);
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-border);
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.4s;
+    }
+
+    /* Theme toggle */
+    .toggle-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .toggle-icon { font-size: 12px; line-height: 1; user-select: none; }
+    .toggle-btn {
+      width: 38px; height: 21px;
+      border-radius: 11px;
+      border: none; outline: none; cursor: pointer;
+      position: relative;
+      background: var(--toggle-bg);
+      transition: background 0.35s;
+      flex-shrink: 0;
+    }
+    .toggle-knob {
+      position: absolute;
+      top: 3.5px; left: 3.5px;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+    }
+    body.light .toggle-knob { transform: translateX(17px); }
+
+    /* ============================================================
+       CONTENT
+    ============================================================ */
+    .content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+      flex: 1;
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--text4);
+      padding-bottom: 7px;
+      border-bottom: 1px solid var(--border);
+      transition: color 0.4s, border-color 0.4s;
+    }
+    .section-title .opt {
+      font-style: italic;
+      font-weight: 300;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 9px;
+    }
+
+    /* Fields */
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field-row { display: flex; gap: 8px; }
+    .field-row .field { flex: 1; min-width: 0; }
+
+    .field label {
+      font-size: 11px;
+      color: var(--text3);
+      display: flex; align-items: center; gap: 2px;
+      transition: color 0.4s;
+    }
+    .req { color: var(--accent); font-size: 10px; }
+
+    .field input,
+    .field select,
+    .field textarea {
+      padding: 9px 12px;
+      border-radius: 9px;
+      border: 1px solid var(--input-border);
+      background: var(--input-bg);
+      color: var(--text);
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      width: 100%;
+      transition: background 0.4s, border-color 0.3s, color 0.4s;
+      -webkit-appearance: none;
+    }
+    .field textarea { resize: none; line-height: 1.6; }
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus  { border-color: var(--accent); }
+    .field input.valid,
+    .field select.valid    { border-color: var(--valid); }
+    .field input.error,
+    .field select.error    { border-color: var(--error); background: var(--error-bg); }
+
+    /* Immatriculation */
+    .immat-wrap { display: flex; justify-content: center; }
+    .immat-input {
+      font-family: 'DM Mono', monospace !important;
+      font-size: 20px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.15em !important;
+      text-transform: uppercase !important;
+      text-align: center !important;
+      max-width: 210px;
+    }
+
+    /* ============================================================
+       PHOTO GRID
+    ============================================================ */
+    .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .photo-last  { display: flex; justify-content: center; margin-top: 8px; }
+    .photo-last .photo-slot { width: calc(50% - 4px); }
+
+    .photo-slot {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      background: var(--slot-bg);
+      aspect-ratio: 4/3;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      cursor: pointer;
+      position: relative; overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.4s, border-color 0.3s;
+    }
+    .photo-slot:active { opacity: 0.75; }
+    .photo-slot.filled { border-style: solid; border-color: var(--valid); }
+    .photo-slot.error  { border-style: solid; border-color: var(--error); background: var(--error-bg); }
+
+    .photo-slot img {
+      width: 100%; height: 100%; object-fit: cover;
+      position: absolute; top: 0; left: 0; border-radius: 11px;
+    }
+    .slot-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      margin-bottom: 5px;
+      position: relative; z-index: 1;
+      transition: all 0.4s;
+    }
+    .slot-icon svg { width: 14px; height: 14px; stroke: var(--text4); fill: none; stroke-width: 1.8; }
+    .slot-label {
+      font-size: 10px; font-weight: 500; color: var(--text4);
+      text-align: center; padding: 0 6px; line-height: 1.3;
+      position: relative; z-index: 1;
+      transition: color 0.4s;
+    }
+    .slot-overlay {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(0,0,0,0.62);
+      padding: 4px 6px;
+      font-size: 9px; font-weight: 500; color: #fff;
+      text-align: center;
+      border-radius: 0 0 11px 11px; z-index: 2;
+    }
+    .check-badge {
+      position: absolute; top: 5px; right: 5px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--valid);
+      display: flex; align-items: center; justify-content: center; z-index: 3;
+    }
+    .check-badge svg { width: 10px; height: 10px; stroke: #fff; fill: none; stroke-width: 2.5; }
+
+    /* Photo counter */
+    .photo-counter {
+      font-size: 10px; color: var(--text4);
+      text-align: right; margin-top: -7px;
+      transition: color 0.4s;
+    }
+    .photo-counter span { font-weight: 500; color: var(--text3); }
+    .photo-counter.done span { color: var(--valid); }
+
+    /* ============================================================
+       EXTRAS
+    ============================================================ */
+    .extra-list { display: flex; flex-direction: column; gap: 6px; }
+    .extra-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      background: var(--extra-bg);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      transition: background 0.4s, border-color 0.4s;
+    }
+    .extra-item img { width: 38px; height: 38px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+    .extra-item span { font-size: 11px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text2); }
+    .extra-del { background: none; border: none; cursor: pointer; padding: 4px; color: var(--text4); }
+    .extra-del svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; display: block; }
+
+    .add-btn {
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 10px;
+      border-radius: 9px;
+      border: 1px dashed var(--border);
+      background: transparent;
+      color: var(--text3);
+      font-size: 13px; font-family: 'DM Sans', sans-serif;
+      cursor: pointer; width: 100%;
+      transition: all 0.4s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .add-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+    /* ============================================================
+       PROGRESS & SEND
+    ============================================================ */
+    .prog-bar {
+      height: 3px; border-radius: 2px; overflow: hidden;
+      background: var(--prog-bg);
+      transition: background 0.4s;
+    }
+    .prog-fill {
+      height: 100%; border-radius: 2px;
+      background: var(--prog-fill);
+      width: 0%;
+      transition: width 0.35s ease, background 0.4s;
+    }
+
+    .validation-banner {
+      display: none;
+      padding: 10px 13px;
+      background: var(--error-bg);
+      border: 1px solid var(--error);
+      border-radius: 9px;
+      font-size: 12px; color: #e57373;
+      line-height: 1.5;
+      transition: all 0.4s;
+    }
+
+    .done-msg {
+      display: none;
+      padding: 12px;
+      background: var(--done-bg);
+      border-radius: 9px;
+      font-size: 13px; color: var(--done-text);
+      text-align: center; font-weight: 500;
+      transition: all 0.4s;
+    }
+
+    .send-btn {
+      width: 100%; padding: 14px;
+      background: var(--send-bg); color: var(--send-text);
+      border: none; border-radius: 12px;
+      font-size: 15px; font-weight: 500;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: 'DM Sans', sans-serif;
+      transition: background 0.4s, color 0.4s, opacity 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .send-btn:active { opacity: 0.8; }
+    .send-btn svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+    /* Progress label inside button */
+    .send-btn.loading { opacity: 0.7; pointer-events: none; }
+
+    /* Bottom safe area */
+    .bottom-spacer { height: env(safe-area-inset-bottom, 16px); min-height: 16px; }
+  </style>
+</head>
+<body class="dark">
+
+<div class="app">
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <div class="clap">
+        <div class="clap-top">
+          <div class="clap-stripe"></div>
+          <div class="clap-stripe"></div>
+          <div class="clap-stripe"></div>
+        </div>
+        <div class="clap-bottom"></div>
+      </div>
+      <span class="bar-title">État des lieux véhicule</span>
+    </div>
+    <span class="proj-tag" id="projTag">HARCELEURS</span>
+    <div class="toggle-wrap">
+      <span class="toggle-icon">🌙</span>
+      <button class="toggle-btn" id="themeToggle" onclick="toggleTheme()" aria-label="Changer de thème">
+        <div class="toggle-knob"></div>
+      </button>
+      <span class="toggle-icon">☀️</span>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="content">
+
+    <!-- SECTION CONTACT -->
+    <div class="section-title">Contact</div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Prénom <span class="req">*</span></label>
+        <input type="text" id="prenom" placeholder="Jean" oninput="validateField(this)" autocomplete="given-name" />
+      </div>
+      <div class="field">
+        <label>Nom <span class="req">*</span></label>
+        <input type="text" id="nom" placeholder="Dupont" oninput="validateField(this)" autocomplete="family-name" />
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Téléphone <span class="req">*</span></label>
+        <input type="tel" id="tel" placeholder="06 00 00 00 00" oninput="validateField(this)" autocomplete="tel" />
+      </div>
+      <div class="field">
+        <label>Email <span class="req">*</span></label>
+        <input type="email" id="email" placeholder="jean@mail.com" oninput="validateField(this)" autocomplete="email" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Poste <span class="req">*</span></label>
+      <select id="poste" onchange="validateField(this)">
+        <option value="">— Sélectionner un poste —</option>
+      </select>
+    </div>
+
+    <!-- SECTION VEHICULE -->
+    <div class="section-title">Véhicule</div>
+
+    <div class="field">
+      <label style="justify-content:center;">Immatriculation <span class="req">*</span></label>
+      <div class="immat-wrap">
+        <input class="immat-input" type="text" id="immat" placeholder="AB-123-CD"
+               maxlength="9" oninput="formatImmat(this); validateField(this)"
+               autocomplete="off" autocorrect="off" autocapitalize="characters" />
+      </div>
+    </div>
+
+    <!-- SECTION PHOTOS -->
+    <div class="section-title">Photos par angle <span class="req">*</span></div>
+    <div class="photo-counter" id="photoCounter"><span>0</span> / 9 photos</div>
+    <div class="photo-grid" id="photoGrid"></div>
+    <div class="photo-last"  id="photoLast"></div>
+
+    <!-- SECTION SUPPLEMENTAIRE -->
+    <div class="section-title">
+      Photo supplémentaire si nécessaire
+      <span class="opt">(optionnel)</span>
+    </div>
+
+    <div class="extra-list" id="extraList"></div>
+
+    <button class="add-btn" onclick="addExtra()">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Ajouter une photo
+    </button>
+    <input type="file" id="extraInput" accept="image/*" style="display:none" onchange="handleExtra(this)" />
+
+    <div class="field">
+      <label>Remarque</label>
+      <textarea id="remarque" rows="3" placeholder="Observation complémentaire…"></textarea>
+    </div>
+
+    <!-- ENVOI -->
+    <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+    <div class="validation-banner" id="validationBanner"></div>
+    <div class="done-msg" id="doneMsg">✓ Envoyé dans Google Drive !</div>
+
+    <button class="send-btn" id="sendBtn" onclick="trySend()">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12"/><path d="M22 12l-4-4m4 4l-4 4"/><path d="M22 12H2"/></svg>
+      Envoyer vers Google Drive
+    </button>
+
+    <div class="bottom-spacer"></div>
+  </div>
+</div>
+
+<script>
+  /* ============================================================
+     CONFIGURATION — modifier uniquement cette section par projet
+  ============================================================ */
+  const CONFIG = {
+    projet: "Harceleurs",
+    // URL du Google Apps Script (à remplir après déploiement)
+    driveEndpoint: "",
+    postes: [
+      "Accessoires", "Caméra", "Coiffure", "Décoration", "Électricité",
+      "Habillage", "Machinerie", "Maquillage", "MFX", "Mise en Scène",
+      "Production", "Régie", "SFX", "Son", "VFX"
+    ]
+  };
+  /* ============================================================ */
+
+  const SLOTS_GRID = [
+    { id: 'avant',   label: 'Avant' },
+    { id: 'arriere', label: 'Arrière' },
+    { id: 'lat-g',   label: 'Latéral Gauche' },
+    { id: 'lat-d',   label: 'Latéral Droit' },
+    { id: 'lat-ag',  label: 'Latéral Arrière Gauche' },
+    { id: 'lat-ad',  label: 'Latéral Arrière Droit' },
+    { id: 'lat-vg',  label: 'Latéral Avant Gauche' },
+    { id: 'lat-vd',  label: 'Latéral Avant Droit' },
+  ];
+  const SLOT_LAST  = { id: 'tableau', label: 'Tableau de bord' };
+  const ALL_SLOTS  = [...SLOTS_GRID, SLOT_LAST];
+
+  const camSVG   = `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="13" r="3.5"/><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/></svg>`;
+  const checkSVG  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+  const photoData  = {};
+  const extraPhotos = [];
+  let   isDark     = true;
+
+  /* ── Theme toggle ── */
+  function toggleTheme() {
+    isDark = !isDark;
+    document.body.classList.toggle('dark',  isDark);
+    document.body.classList.toggle('light', !isDark);
+  }
+
+  /* ── Init ── */
+  function init() {
+    // Inject project name
+    document.getElementById('projTag').textContent = CONFIG.projet;
+    document.title = `État des lieux — ${CONFIG.projet}`;
+
+    // Populate postes dropdown
+    const sel = document.getElementById('poste');
+    CONFIG.postes.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p; opt.textContent = p;
+      sel.appendChild(opt);
+    });
+
+    buildGrid();
+  }
+
+  /* ── Build photo grid ── */
+  function makeSlot(slot, container) {
+    const div = document.createElement('div');
+    div.className = 'photo-slot';
+    div.id = 'slot-' + slot.id;
+    div.innerHTML = `<div class="slot-icon">${camSVG}</div><span class="slot-label">${slot.label}</span>`;
+    div.onclick = () => triggerSlot(slot.id);
+    container.appendChild(div);
+
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
+    inp.id = 'inp-' + slot.id;
+    inp.onchange = function () { handleSlot(slot.id, this); };
+    document.body.appendChild(inp);
+  }
+
+  function buildGrid() {
+    const g = document.getElementById('photoGrid');
+    const l = document.getElementById('photoLast');
+    SLOTS_GRID.forEach(s => makeSlot(s, g));
+    makeSlot(SLOT_LAST, l);
+  }
+
+  function triggerSlot(id) {
+    const inp = document.getElementById('inp-' + id);
+    inp.value = ''; inp.click();
+  }
+
+  function handleSlot(id, input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      photoData[id] = e.target.result;
+      const label = ALL_SLOTS.find(s => s.id === id).label;
+      const slot  = document.getElementById('slot-' + id);
+      slot.classList.remove('error'); slot.classList.add('filled');
+      slot.innerHTML = `<img src="${e.target.result}" alt="${label}" /><div class="slot-overlay">${label}</div><div class="check-badge">${checkSVG}</div>`;
+      slot.onclick = () => triggerSlot(id);
+      updateCounter();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function updateCounter() {
+    const n  = Object.keys(photoData).length;
+    const el = document.getElementById('photoCounter');
+    el.innerHTML  = `<span>${n}</span> / 9 photos`;
+    el.className  = 'photo-counter' + (n === 9 ? ' done' : '');
+    document.getElementById('progFill').style.width = Math.round((n / 9) * 100) + '%';
+  }
+
+  /* ── Field validation ── */
+  function validateField(el) {
+    if (el.value.trim()) {
+      el.classList.remove('error'); el.classList.add('valid');
+    } else {
+      el.classList.remove('valid');
+    }
+  }
+
+  /* ── Immatriculation formatter ── */
+  function formatImmat(input) {
+    let v = input.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    if (v.length > 5)      v = v.slice(0,2) + '-' + v.slice(2,5) + '-' + v.slice(5,7);
+    else if (v.length > 2) v = v.slice(0,2) + '-' + v.slice(2);
+    input.value = v;
+  }
+
+  /* ── Extra photos ── */
+  function addExtra() {
+    const inp = document.getElementById('extraInput');
+    inp.value = ''; inp.click();
+  }
+
+  function handleExtra(input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      extraPhotos.push({ src: e.target.result, name: file.name });
+      renderExtras();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function renderExtras() {
+    const list = document.getElementById('extraList');
+    list.innerHTML = '';
+    extraPhotos.forEach((item, i) => {
+      const div = document.createElement('div');
+      div.className = 'extra-item';
+      div.innerHTML = `
+        <img src="${item.src}" alt="${item.name}" />
+        <span>${item.name}</span>
+        <button class="extra-del" onclick="removeExtra(${i})" aria-label="Supprimer">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>`;
+      list.appendChild(div);
+    });
+  }
+
+  function removeExtra(i) {
+    extraPhotos.splice(i, 1); renderExtras();
+  }
+
+  /* ── Send ── */
+  function trySend() {
+    const required = ['prenom','nom','tel','email','poste','immat'];
+    const errors = []; let firstError = null;
+
+    required.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el.value.trim()) {
+        el.classList.add('error'); el.classList.remove('valid');
+        if (!firstError) firstError = el;
+        const lbl = el.closest('.field').querySelector('label')
+                       .textContent.replace('*','').trim();
+        errors.push(lbl);
+      }
+    });
+
+    const missingSlots = ALL_SLOTS.filter(s => !photoData[s.id]);
+    missingSlots.forEach(s => {
+      const slot = document.getElementById('slot-' + s.id);
+      slot.classList.add('error');
+      if (!firstError) firstError = slot;
+    });
+    if (missingSlots.length) errors.push(`${missingSlots.length} photo(s) manquante(s)`);
+
+    const banner = document.getElementById('validationBanner');
+    if (errors.length) {
+      banner.style.display = 'block';
+      banner.innerHTML = `Champs requis manquants : <strong>${errors.join(', ')}</strong>`;
+      if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    banner.style.display = 'none';
+
+    // Si un endpoint Drive est configuré, envoyer les données
+    if (CONFIG.driveEndpoint) {
+      sendToDrive();
+    } else {
+      // Simulation si pas encore d'endpoint configuré
+      simulateSend();
+    }
+  }
+
+  /* ── Simulation envoi (à remplacer par sendToDrive() une fois l'endpoint configuré) ── */
+  function simulateSend() {
+    const btn  = document.getElementById('sendBtn');
+    const fill = document.getElementById('progFill');
+    const done = document.getElementById('doneMsg');
+    btn.classList.add('loading');
+    done.style.display = 'none';
+    const steps = ['Compression…','Création du dossier…','Envoi des photos…','Finalisation…'];
+    let p = 0, si = 0;
+    btn.querySelector('span') && (btn.querySelector('span').textContent = steps[0]);
+    const iv = setInterval(() => {
+      p += Math.random() * 14 + 5;
+      if (p >= 100) {
+        p = 100; clearInterval(iv);
+        fill.style.width = '100%';
+        setTimeout(() => { btn.classList.remove('loading'); done.style.display = 'block'; }, 400);
+      } else {
+        fill.style.width = Math.round(p) + '%';
+        const ni = Math.floor((p / 100) * steps.length);
+        if (ni !== si && ni < steps.length) { si = ni; }
+      }
+    }, 220);
+  }
+
+  /* ── Envoi réel vers Google Drive (Google Apps Script) ── */
+  async function sendToDrive() {
+    const btn  = document.getElementById('sendBtn');
+    const done = document.getElementById('doneMsg');
+    btn.classList.add('loading');
+    done.style.display = 'none';
+
+    const payload = {
+      prenom:    document.getElementById('prenom').value,
+      nom:       document.getElementById('nom').value,
+      tel:       document.getElementById('tel').value,
+      email:     document.getElementById('email').value,
+      poste:     document.getElementById('poste').value,
+      immat:     document.getElementById('immat').value,
+      remarque:  document.getElementById('remarque').value,
+      photos:    photoData,
+      extras:    extraPhotos,
+      projet:    CONFIG.projet,
+      date:      new Date().toISOString(),
+    };
+
+    try {
+      const res = await fetch(CONFIG.driveEndpoint, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (json.status === 'ok') {
+        document.getElementById('progFill').style.width = '100%';
+        done.style.display = 'block';
+      } else {
+        alert('Erreur lors de l\'envoi. Veuillez réessayer.');
+      }
+    } catch (e) {
+      alert('Impossible de joindre Google Drive. Vérifiez votre connexion.');
+    } finally {
+      btn.classList.remove('loading');
+    }
+  }
+
+  // Start
+  init();
+</script>
+</body>
+</html>
