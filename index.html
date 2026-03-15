@@ -118,6 +118,21 @@
     .photo-counter span { font-weight: 500; color: var(--text3); }
     .photo-counter.done span { color: var(--valid); }
 
+    /* Spinner compression */
+    .compress-spinner {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Grille 3 colonnes sur grand écran */
+    @media (min-width: 600px) {
+      .photo-grid { grid-template-columns: 1fr 1fr 1fr; }
+      .photo-last .photo-slot { width: calc(33.33% - 6px); }
+    }
+
     /* EXTRAS */
     .extra-list { display: flex; flex-direction: column; gap: 6px; }
     .extra-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--extra-bg); border: 1px solid var(--border); border-radius: 9px; transition: background 0.4s, border-color 0.4s; }
@@ -182,7 +197,7 @@
     </div>
     <div class="field">
       <label>Loueur <span class="req">*</span></label>
-      <input type="text" id="loueur" placeholder="Ex : ALD Automotive, Arval…" oninput="validateField(this)" />
+      <input type="text" id="loueur" placeholder="Ex : Europcar, Hertz, Sixt…" oninput="validateField(this)" />
     </div>
 
     <div class="section-title">Photos par angle <span class="req">*</span></div>
@@ -248,6 +263,8 @@
     isDark = !isDark;
     document.body.classList.toggle('dark', isDark);
     document.body.classList.toggle('light', !isDark);
+    // Ne PAS reconstruire la grille — juste changer le thème visuellement
+    // Les photos et inputs existants sont préservés
   }
 
   function init() {
@@ -314,10 +331,15 @@
 
   function handleSlot(id, input) {
     const file=input.files[0]; if(!file) return;
+    // Indicateur de chargement pendant la compression
+    const slot=document.getElementById('slot-'+id);
+    slot.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div class="compress-spinner"></div>
+      <span style="font-size:9px;color:var(--text4);">Compression…</span>
+    </div>`;
     compressImage(file, 2500, 0.92).then(compressed => {
       photoData[id]=compressed;
       const label=ALL_SLOTS.find(s=>s.id===id).label;
-      const slot=document.getElementById('slot-'+id);
       slot.classList.remove('error'); slot.classList.add('filled');
       slot.innerHTML=`
         <img src="${compressed}" alt="${label}"/>
@@ -450,6 +472,13 @@
       return;
     }
     banner.style.display='none';
+
+    // Confirmation avant envoi
+    const immat = document.getElementById('immat').value;
+    const nom   = document.getElementById('prenom').value + ' ' + document.getElementById('nom').value;
+    const ok = confirm(`Confirmer l'envoi ?\n\nVéhicule : ${immat}\nResponsable : ${nom}\n\n9 photos prêtes à envoyer.`);
+    if(!ok) return;
+
     CONFIG.driveEndpoint ? sendToDrive() : simulateSend();
   }
 
@@ -459,14 +488,15 @@
     let p=0; fill.style.width='0%';
     const iv=setInterval(()=>{
       p+=Math.random()*13+5;
-      if(p>=100){p=100;clearInterval(iv);fill.style.width='100%';setTimeout(()=>{btn.classList.remove('loading');done.style.display='block';},400);}
+      if(p>=100){p=100;clearInterval(iv);fill.style.width='100%';setTimeout(()=>{btn.classList.remove('loading');done.style.display='block';setTimeout(resetForm,5000);},400);}
       else{fill.style.width=Math.round(p)+'%';}
     },220);
   }
 
   async function sendToDrive(){
     const btn=document.getElementById('sendBtn'), done=document.getElementById('doneMsg');
-    btn.classList.add('loading'); done.style.display='none';
+    const banner=document.getElementById('validationBanner');
+    btn.classList.add('loading'); done.style.display='none'; banner.style.display='none';
     const payload={
       projet:   CONFIG.projet,
       date:     new Date().toLocaleString('fr-FR'),
@@ -487,13 +517,19 @@
       if(json.status==='ok'){
         document.getElementById('progFill').style.width='100%';
         done.style.display='block';
-        // Réinitialiser le formulaire après succès
-        setTimeout(resetForm, 3000);
+        setTimeout(resetForm, 5000);
       } else {
-        alert('Erreur lors de l\'envoi. Veuillez réessayer.');
+        // Afficher l'erreur dans le banner plutôt qu'un alert
+        document.getElementById('progFill').style.width='0%';
+        banner.style.display='block';
+        banner.innerHTML='❌ Erreur lors de l\'envoi. Veuillez réessayer ou contacter le support.';
+        banner.scrollIntoView({behavior:'smooth',block:'center'});
       }
     }catch(e){
-      alert('Impossible de joindre Google Drive. Vérifiez votre connexion.');
+      document.getElementById('progFill').style.width='0%';
+      banner.style.display='block';
+      banner.innerHTML='❌ Connexion impossible. Vérifiez votre réseau et réessayez.';
+      banner.scrollIntoView({behavior:'smooth',block:'center'});
     }finally{
       btn.classList.remove('loading');
     }
