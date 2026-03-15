@@ -98,14 +98,18 @@
     .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .photo-last { display: flex; justify-content: center; margin-top: 8px; }
     .photo-last .photo-slot { width: calc(50% - 4px); }
-    .photo-slot { border: 1px dashed var(--border); border-radius: 12px; background: var(--slot-bg); aspect-ratio: 4/3; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; position: relative; overflow: hidden; -webkit-tap-highlight-color: transparent; transition: background 0.4s, border-color 0.3s; }
-    .photo-slot:active { opacity: 0.75; }
+    .photo-slot { border: 1px dashed var(--border); border-radius: 12px; background: var(--slot-bg); aspect-ratio: 4/3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; position: relative; overflow: hidden; -webkit-tap-highlight-color: transparent; transition: background 0.4s, border-color 0.3s; }
     .photo-slot.filled { border-style: solid; border-color: var(--valid); }
     .photo-slot.error  { border-style: solid; border-color: var(--error); background: var(--error-bg); }
     .photo-slot img { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; border-radius: 11px; }
-    .slot-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: var(--bg2); margin-bottom: 5px; position: relative; z-index: 1; transition: all 0.4s; }
-    .slot-icon svg { width: 14px; height: 14px; stroke: var(--text4); fill: none; stroke-width: 1.8; }
-    .slot-label { font-size: 10px; font-weight: 500; color: var(--text4); text-align: center; padding: 0 6px; line-height: 1.3; position: relative; z-index: 1; transition: color 0.4s; }
+    .slot-label { font-size: 9px; font-weight: 500; color: var(--text4); text-align: center; padding: 0 5px; line-height: 1.3; position: relative; z-index: 1; transition: color 0.4s; }
+    .slot-actions { display: flex; gap: 4px; position: relative; z-index: 1; }
+    .slot-btn { display: flex; align-items: center; gap: 3px; padding: 4px 7px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg2); color: var(--text3); font-size: 9px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
+    .slot-btn:active { opacity: 0.7; }
+    .slot-btn svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0; }
+    .slot-btn.cam { border-color: var(--accent-border); color: var(--accent); background: var(--accent-bg); }
+    .retake-btn { position: absolute; bottom: 20px; right: 5px; background: rgba(0,0,0,0.55); border: none; border-radius: 5px; padding: 3px 6px; font-size: 9px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 3px; z-index: 4; font-family: 'DM Sans', sans-serif; }
+    .retake-btn svg { width: 10px; height: 10px; stroke: #fff; fill: none; stroke-width: 2; }
     .slot-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.62); padding: 4px 6px; font-size: 9px; font-weight: 500; color: #fff; text-align: center; border-radius: 0 0 11px 11px; z-index: 2; }
     .check-badge { position: absolute; top: 5px; right: 5px; width: 18px; height: 18px; border-radius: 50%; background: var(--valid); display: flex; align-items: center; justify-content: center; z-index: 3; }
     .check-badge svg { width: 10px; height: 10px; stroke: #fff; fill: none; stroke-width: 2.5; }
@@ -214,7 +218,7 @@
   ============================================================ */
   const CONFIG = {
     projet: "Harceleurs",
-    driveEndpoint: "https://script.google.com/macros/library/d/1yzNTp9_cgad54QG12jHGKoyZxVBou9AqDh0J2tSaoyPYiGhRGjXV4pF3/1", // ← coller ici l'URL du Google Apps Script après déploiement
+    driveEndpoint: "https://script.google.com/macros/s/AKfycbxwE8lRVIpoe0p083LWdLS1C7ADqkBQTQKkNgfGCZhXOnqW0vgzcUHPtZ4YugbwXVja/exec", // ← coller ici l'URL du Google Apps Script après déploiement
     postes: [
       "Accessoires","Caméra","Coiffure","Décoration","Électricité",
       "Habillage","Machinerie","Maquillage","MFX","Mise en Scène",
@@ -232,6 +236,8 @@
   const SLOT_LAST = {id:'tableau',label:'Tableau de bord'};
   const ALL_SLOTS = [...SLOTS_GRID, SLOT_LAST];
   const camSVG   = `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="13" r="3.5"/><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/></svg>`;
+  const galSVG   = `<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+  const retSVG   = `<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/></svg>`;
   const checkSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
   const photoData = {};
   const extraPhotos = [];
@@ -254,13 +260,32 @@
   function makeSlot(slot, container) {
     const div = document.createElement('div');
     div.className='photo-slot'; div.id='slot-'+slot.id;
-    div.innerHTML=`<div class="slot-icon">${camSVG}</div><span class="slot-label">${slot.label}</span>`;
-    div.onclick=()=>triggerSlot(slot.id);
+    div.innerHTML=`
+      <span class="slot-label">${slot.label}</span>
+      <div class="slot-actions">
+        <button class="slot-btn cam" onclick="triggerCamera('${slot.id}')" title="Prendre une photo">
+          ${camSVG} Photo
+        </button>
+        <button class="slot-btn" onclick="triggerGallery('${slot.id}')" title="Choisir dans la galerie">
+          ${galSVG} Galerie
+        </button>
+      </div>
+    `;
     container.appendChild(div);
-    const inp=document.createElement('input');
-    inp.type='file'; inp.accept='image/*'; inp.style.display='none'; inp.id='inp-'+slot.id;
-    inp.onchange=function(){handleSlot(slot.id,this);};
-    document.body.appendChild(inp);
+
+    // Input caméra directe (caméra arrière)
+    const cam = document.createElement('input');
+    cam.type='file'; cam.accept='image/*'; cam.capture='environment';
+    cam.style.display='none'; cam.id='cam-'+slot.id;
+    cam.onchange = function(){ handleSlot(slot.id, this); };
+    document.body.appendChild(cam);
+
+    // Input galerie (sans capture)
+    const gal = document.createElement('input');
+    gal.type='file'; gal.accept='image/*';
+    gal.style.display='none'; gal.id='gal-'+slot.id;
+    gal.onchange = function(){ handleSlot(slot.id, this); };
+    document.body.appendChild(gal);
   }
 
   function buildGrid() {
@@ -269,9 +294,10 @@
     makeSlot(SLOT_LAST,l);
   }
 
-  function triggerSlot(id){const i=document.getElementById('inp-'+id);i.value='';i.click();}
+  function triggerCamera(id)  { const i=document.getElementById('cam-'+id); i.value=''; i.click(); }
+  function triggerGallery(id) { const i=document.getElementById('gal-'+id); i.value=''; i.click(); }
 
-  function handleSlot(id,input){
+  function handleSlot(id, input) {
     const file=input.files[0]; if(!file) return;
     const r=new FileReader();
     r.onload=e=>{
@@ -279,11 +305,37 @@
       const label=ALL_SLOTS.find(s=>s.id===id).label;
       const slot=document.getElementById('slot-'+id);
       slot.classList.remove('error'); slot.classList.add('filled');
-      slot.innerHTML=`<img src="${e.target.result}" alt="${label}"/><div class="slot-overlay">${label}</div><div class="check-badge">${checkSVG}</div>`;
-      slot.onclick=()=>triggerSlot(id);
+      slot.innerHTML=`
+        <img src="${e.target.result}" alt="${label}"/>
+        <div class="slot-overlay">${label}</div>
+        <div class="check-badge">${checkSVG}</div>
+        <button class="retake-btn" onclick="showRetakeMenu('${id}',event)">${retSVG} Reprendre</button>
+      `;
       updateCounter();
     };
     r.readAsDataURL(file);
+  }
+
+  function showRetakeMenu(id, e) {
+    e.stopPropagation();
+    const slot = document.getElementById('slot-'+id);
+    const old  = slot.querySelector('.retake-menu');
+    if(old){ old.remove(); return; }
+    const menu = document.createElement('div');
+    menu.className = 'retake-menu';
+    menu.style.cssText='position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);border-radius:8px;padding:5px;display:flex;gap:5px;z-index:10;';
+    menu.innerHTML=`
+      <button onclick="triggerCamera('${id}');this.closest('.retake-menu').remove();"
+        style="background:none;border:1px solid rgba(200,168,75,0.6);border-radius:5px;color:#c8a84b;font-size:9px;padding:4px 8px;cursor:pointer;display:flex;align-items:center;gap:3px;font-family:'DM Sans',sans-serif;">
+        <svg viewBox="0 0 24 24" style="width:10px;height:10px;stroke:currentColor;fill:none;stroke-width:2;"><circle cx="12" cy="13" r="3.5"/><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/></svg> Photo
+      </button>
+      <button onclick="triggerGallery('${id}');this.closest('.retake-menu').remove();"
+        style="background:none;border:1px solid rgba(255,255,255,0.25);border-radius:5px;color:#ccc;font-size:9px;padding:4px 8px;cursor:pointer;display:flex;align-items:center;gap:3px;font-family:'DM Sans',sans-serif;">
+        <svg viewBox="0 0 24 24" style="width:10px;height:10px;stroke:currentColor;fill:none;stroke-width:2;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Galerie
+      </button>
+    `;
+    slot.appendChild(menu);
+    setTimeout(()=>{ document.addEventListener('click',()=>menu.remove(),{once:true}); },100);
   }
 
   function updateCounter(){
