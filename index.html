@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>État des lieux véhicule — Harceleurs</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -196,7 +196,7 @@
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Ajouter une photo
     </button>
-    <input type="file" id="extraInput" accept="image/*" style="display:none" onchange="handleExtra(this)" />
+
     <div class="field">
       <label>Remarque</label>
       <textarea id="remarque" rows="3" placeholder="Observation complémentaire…"></textarea>
@@ -290,8 +290,27 @@
     makeSlot(SLOT_LAST,l);
   }
 
-  function triggerCamera(id)  { const i=document.getElementById('cam-'+id); i.value=''; i.click(); }
-  function triggerGallery(id) { const i=document.getElementById('gal-'+id); i.value=''; i.click(); }
+  function triggerCamera(id) {
+    const old = document.getElementById('cam-'+id);
+    if (old) old.remove();
+    const inp = document.createElement('input');
+    inp.type='file'; inp.accept='image/*'; inp.capture='environment';
+    inp.style.display='none'; inp.id='cam-'+id;
+    inp.onchange = function(){ handleSlot(id, this); };
+    document.body.appendChild(inp);
+    inp.click();
+  }
+
+  function triggerGallery(id) {
+    const old = document.getElementById('gal-'+id);
+    if (old) old.remove();
+    const inp = document.createElement('input');
+    inp.type='file'; inp.accept='image/*';
+    inp.style.display='none'; inp.id='gal-'+id;
+    inp.onchange = function(){ handleSlot(id, this); };
+    document.body.appendChild(inp);
+    inp.click();
+  }
 
   function handleSlot(id, input) {
     const file=input.files[0]; if(!file) return;
@@ -378,7 +397,16 @@
     input.value=v;
   }
 
-  function addExtra(){const i=document.getElementById('extraInput');i.value='';i.click();}
+  function addExtra(){
+    const old = document.getElementById('extraInput');
+    if (old) old.remove();
+    const inp = document.createElement('input');
+    inp.type='file'; inp.accept='image/*';
+    inp.style.display='none'; inp.id='extraInput';
+    inp.onchange = function(){ handleExtra(this); };
+    document.body.appendChild(inp);
+    inp.click();
+  }
   function handleExtra(input){
     const file=input.files[0]; if(!file) return;
     compressImage(file, 2500, 0.92).then(compressed => {
@@ -428,8 +456,7 @@
   function simulateSend(){
     const btn=document.getElementById('sendBtn'), fill=document.getElementById('progFill'), done=document.getElementById('doneMsg');
     btn.classList.add('loading'); done.style.display='none';
-    const steps=['Compression…','Création du dossier Drive…','Envoi des photos…','Mise à jour du Sheets…','Finalisation…'];
-    let p=0, si=0; fill.style.width='0%';
+    let p=0; fill.style.width='0%';
     const iv=setInterval(()=>{
       p+=Math.random()*13+5;
       if(p>=100){p=100;clearInterval(iv);fill.style.width='100%';setTimeout(()=>{btn.classList.remove('loading');done.style.display='block';},400);}
@@ -457,11 +484,41 @@
     try{
       const res=await fetch(CONFIG.driveEndpoint,{method:'POST',body:JSON.stringify(payload)});
       const json=await res.json();
-      if(json.status==='ok'){document.getElementById('progFill').style.width='100%';done.style.display='block';}
-      else{alert('Erreur lors de l\'envoi. Veuillez réessayer.');}
+      if(json.status==='ok'){
+        document.getElementById('progFill').style.width='100%';
+        done.style.display='block';
+        // Réinitialiser le formulaire après succès
+        setTimeout(resetForm, 3000);
+      } else {
+        alert('Erreur lors de l\'envoi. Veuillez réessayer.');
+      }
     }catch(e){
       alert('Impossible de joindre Google Drive. Vérifiez votre connexion.');
-    }finally{btn.classList.remove('loading');}
+    }finally{
+      btn.classList.remove('loading');
+    }
+  }
+
+  function resetForm(){
+    // Vider les champs texte
+    ['prenom','nom','tel','email','poste','immat','loueur','remarque'].forEach(id=>{
+      const el=document.getElementById(id);
+      el.value=''; el.classList.remove('valid','error');
+    });
+    // Réinitialiser les photos
+    Object.keys(photoData).forEach(k=>delete photoData[k]);
+    extraPhotos.length=0;
+    renderExtras();
+    // Reconstruire la grille
+    document.getElementById('photoGrid').innerHTML='';
+    document.getElementById('photoLast').innerHTML='';
+    buildGrid();
+    // Réinitialiser compteur et barre
+    updateCounter();
+    document.getElementById('doneMsg').style.display='none';
+    document.getElementById('validationBanner').style.display='none';
+    // Scroll en haut
+    window.scrollTo({top:0, behavior:'smooth'});
   }
 
   init();
