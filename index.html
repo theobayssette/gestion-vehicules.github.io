@@ -182,7 +182,7 @@
     </div>
     <div class="field">
       <label>Loueur <span class="req">*</span></label>
-      <input type="text" id="loueur" placeholder="Ex : Europcar, Hertz…" oninput="validateField(this)" />
+      <input type="text" id="loueur" placeholder="Ex : ALD Automotive, Arval…" oninput="validateField(this)" />
     </div>
 
     <div class="section-title">Photos par angle <span class="req">*</span></div>
@@ -295,20 +295,46 @@
 
   function handleSlot(id, input) {
     const file=input.files[0]; if(!file) return;
-    const r=new FileReader();
-    r.onload=e=>{
-      photoData[id]=e.target.result;
+    compressImage(file, 2500, 0.92).then(compressed => {
+      photoData[id]=compressed;
       const label=ALL_SLOTS.find(s=>s.id===id).label;
       const slot=document.getElementById('slot-'+id);
       slot.classList.remove('error'); slot.classList.add('filled');
       slot.innerHTML=`
-        <img src="${e.target.result}" alt="${label}"/>
+        <img src="${compressed}" alt="${label}"/>
         <div class="slot-overlay">${label}</div>
         <div class="check-badge">${checkSVG}</div>
         <button class="retake-btn" onclick="showRetakeMenu('${id}',event)">${retSVG} Reprendre</button>`;
       updateCounter();
-    };
-    r.readAsDataURL(file);
+    });
+  }
+
+  /**
+   * Compresse une image via un canvas avant envoi.
+   * @param {File}   file       — fichier image original
+   * @param {number} maxWidth   — largeur max en px (hauteur proportionnelle)
+   * @param {number} quality    — qualité JPEG entre 0 et 1
+   * @returns {Promise<string>} — base64 compressé
+   */
+  function compressImage(file, maxWidth, quality) {
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   function showRetakeMenu(id, e) {
@@ -355,9 +381,10 @@
   function addExtra(){const i=document.getElementById('extraInput');i.value='';i.click();}
   function handleExtra(input){
     const file=input.files[0]; if(!file) return;
-    const r=new FileReader();
-    r.onload=e=>{extraPhotos.push({src:e.target.result,name:file.name});renderExtras();};
-    r.readAsDataURL(file);
+    compressImage(file, 2500, 0.92).then(compressed => {
+      extraPhotos.push({src:compressed, name:file.name});
+      renderExtras();
+    });
   }
   function renderExtras(){
     const list=document.getElementById('extraList'); list.innerHTML='';
