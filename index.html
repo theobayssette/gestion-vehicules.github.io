@@ -153,6 +153,49 @@
     .send-btn svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 2; }
     .send-btn.loading { opacity: 0.6; pointer-events: none; }
     .bottom-spacer { height: max(env(safe-area-inset-bottom), 16px); }
+
+    /* Overlay d'envoi plein écran */
+    .upload-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 999;
+      background: rgba(0,0,0,0.88);
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px;
+      backdrop-filter: blur(4px);
+    }
+    .upload-overlay.visible { display: flex; }
+
+    /* Cercle SVG de progression */
+    .ring-wrap { position: relative; width: 130px; height: 130px; }
+    .ring-wrap svg { transform: rotate(-90deg); }
+    .ring-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
+    .ring-fill {
+      fill: none; stroke: #c8a84b; stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 339.3; /* 2π × r(54) */
+      stroke-dashoffset: 339.3;
+      transition: stroke-dashoffset 0.4s ease;
+    }
+    .ring-pct {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 26px; font-weight: 500; color: #fff;
+    }
+    .ring-pct-sub { font-family: 'DM Sans', sans-serif; font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+    .upload-step {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px; color: rgba(255,255,255,0.7);
+      text-align: center; letter-spacing: 0.02em;
+    }
+    .upload-warning {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px; color: rgba(255,255,255,0.35);
+      text-align: center; padding: 0 32px; line-height: 1.6;
+    }
   </style>
 </head>
 <body class="dark">
@@ -228,6 +271,22 @@
   </div>
 </div>
 
+<!-- Overlay plein écran pendant l'envoi -->
+<div class="upload-overlay" id="uploadOverlay">
+  <div class="ring-wrap">
+    <svg width="130" height="130" viewBox="0 0 130 130">
+      <circle class="ring-bg" cx="65" cy="65" r="54"/>
+      <circle class="ring-fill" id="ringFill" cx="65" cy="65" r="54"/>
+    </svg>
+    <div class="ring-pct">
+      <span id="ringPct">0%</span>
+      <span class="ring-pct-sub" id="ringStep">Préparation…</span>
+    </div>
+  </div>
+  <div class="upload-step" id="uploadStep">Envoi en cours…</div>
+  <div class="upload-warning">⚠️ Ne fermez pas cette page<br>avant la fin de l'envoi</div>
+</div>
+
 <script>
   /* ============================================================
      CONFIGURATION — modifier uniquement cette section par projet
@@ -249,7 +308,7 @@
     {id:'lat-ag',label:'Latéral Arrière Gauche'},{id:'lat-ad',label:'Latéral Arrière Droit'},
     {id:'lat-vg',label:'Latéral Avant Gauche'},{id:'lat-vd',label:'Latéral Avant Droit'},
   ];
-  const SLOT_LAST = {id:'tableau',label:'Tableau de bord Carburant/Kilométrage'};
+  const SLOT_LAST = {id:'tableau',label:'Tableau de bord'};
   const ALL_SLOTS = [...SLOTS_GRID, SLOT_LAST];
   const camSVG   = `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="13" r="3.5"/><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/></svg>`;
   const galSVG   = `<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
@@ -482,21 +541,67 @@
     CONFIG.driveEndpoint ? sendToDrive() : simulateSend();
   }
 
+  // Circonférence du cercle (2π × 54)
+  const CIRCUMFERENCE = 2 * Math.PI * 54;
+
+  function setProgress(pct, stepText) {
+    const p = Math.min(100, Math.max(0, pct));
+    // Cercle
+    const offset = CIRCUMFERENCE - (p / 100) * CIRCUMFERENCE;
+    document.getElementById('ringFill').style.strokeDashoffset = offset;
+    document.getElementById('ringPct').textContent = Math.round(p) + '%';
+    // Barre fine sous le formulaire
+    document.getElementById('progFill').style.width = p + '%';
+    if (stepText) {
+      document.getElementById('ringStep').textContent = stepText;
+      document.getElementById('uploadStep').textContent = stepText;
+    }
+  }
+
+  function showOverlay() {
+    setProgress(0, 'Préparation…');
+    document.getElementById('uploadOverlay').classList.add('visible');
+    // Empêcher le scroll en arrière-plan
+    document.body.style.overflow = 'hidden';
+  }
+
+  function hideOverlay() {
+    document.getElementById('uploadOverlay').classList.remove('visible');
+    document.body.style.overflow = '';
+  }
+
   function simulateSend(){
-    const btn=document.getElementById('sendBtn'), fill=document.getElementById('progFill'), done=document.getElementById('doneMsg');
+    const btn=document.getElementById('sendBtn'), done=document.getElementById('doneMsg');
     btn.classList.add('loading'); done.style.display='none';
-    let p=0; fill.style.width='0%';
+    showOverlay();
+    const steps=['Compression des images…','Création du dossier Drive…','Envoi des photos…','Mise à jour du Sheets…','Finalisation…'];
+    let p=0, si=0;
     const iv=setInterval(()=>{
-      p+=Math.random()*13+5;
-      if(p>=100){p=100;clearInterval(iv);fill.style.width='100%';setTimeout(()=>{btn.classList.remove('loading');done.style.display='block';setTimeout(resetForm,5000);},400);}
-      else{fill.style.width=Math.round(p)+'%';}
-    },220);
+      p+=Math.random()*11+4;
+      if(p>=100){
+        p=100; clearInterval(iv);
+        setProgress(100, 'Envoyé !');
+        setTimeout(()=>{
+          hideOverlay();
+          btn.classList.remove('loading');
+          done.style.display='block';
+          setTimeout(resetForm, 5000);
+        }, 800);
+      } else {
+        const ni=Math.floor((p/100)*steps.length);
+        if(ni!==si && ni<steps.length){ si=ni; }
+        setProgress(p, steps[si]);
+      }
+    }, 220);
   }
 
   async function sendToDrive(){
     const btn=document.getElementById('sendBtn'), done=document.getElementById('doneMsg');
     const banner=document.getElementById('validationBanner');
     btn.classList.add('loading'); done.style.display='none'; banner.style.display='none';
+    showOverlay();
+    setProgress(5, 'Préparation des données…');
+
     const payload={
       projet:   CONFIG.projet,
       date:     new Date().toLocaleString('fr-FR'),
@@ -511,22 +616,42 @@
       photos:   photoData,
       extras:   extraPhotos,
     };
+
+    // Simulation de progression pendant l'envoi réel
+    let fakeP = 5;
+    const fakeSteps = ['Envoi des données…','Transfert des photos…','Création du dossier…','Mise à jour du Sheets…'];
+    let fsi = 0;
+    const fakeIv = setInterval(()=>{
+      if(fakeP < 85) {
+        fakeP += Math.random() * 4 + 1;
+        const ni = Math.floor(((fakeP-5)/80)*fakeSteps.length);
+        if(ni !== fsi && ni < fakeSteps.length){ fsi=ni; }
+        setProgress(fakeP, fakeSteps[fsi]);
+      }
+    }, 300);
+
     try{
       const res=await fetch(CONFIG.driveEndpoint,{method:'POST',body:JSON.stringify(payload)});
       const json=await res.json();
+      clearInterval(fakeIv);
       if(json.status==='ok'){
-        document.getElementById('progFill').style.width='100%';
-        done.style.display='block';
-        setTimeout(resetForm, 5000);
+        setProgress(100, 'Envoyé avec succès !');
+        setTimeout(()=>{
+          hideOverlay();
+          done.style.display='block';
+          setTimeout(resetForm, 5000);
+        }, 800);
       } else {
-        // Afficher l'erreur dans le banner plutôt qu'un alert
-        document.getElementById('progFill').style.width='0%';
+        hideOverlay();
+        setProgress(0);
         banner.style.display='block';
         banner.innerHTML='❌ Erreur lors de l\'envoi. Veuillez réessayer ou contacter le support.';
         banner.scrollIntoView({behavior:'smooth',block:'center'});
       }
     }catch(e){
-      document.getElementById('progFill').style.width='0%';
+      clearInterval(fakeIv);
+      hideOverlay();
+      setProgress(0);
       banner.style.display='block';
       banner.innerHTML='❌ Connexion impossible. Vérifiez votre réseau et réessayez.';
       banner.scrollIntoView({behavior:'smooth',block:'center'});
