@@ -156,45 +156,46 @@
 
     /* Overlay d'envoi plein écran */
     .upload-overlay {
-      display: none;
-      position: fixed; inset: 0; z-index: 999;
-      background: rgba(0,0,0,0.88);
-      flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 20px;
-      backdrop-filter: blur(4px);
+      display: none; position: fixed; inset: 0; z-index: 999;
+      background: rgba(0,0,0,0.9);
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 20px; backdrop-filter: blur(4px);
     }
     .upload-overlay.visible { display: flex; }
 
-    /* Cercle SVG de progression */
-    .ring-wrap { position: relative; width: 130px; height: 130px; }
-    .ring-wrap svg { transform: rotate(-90deg); }
-    .ring-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
+    .ring-wrap { position: relative; width: 150px; height: 150px; }
+    .ring-wrap svg { transform: rotate(-90deg); display: block; }
+    .ring-bg   { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 9; }
     .ring-fill {
-      fill: none; stroke: #c8a84b; stroke-width: 8;
+      fill: none; stroke: #c8a84b; stroke-width: 9;
       stroke-linecap: round;
-      stroke-dasharray: 339.3; /* 2π × r(54) */
-      stroke-dashoffset: 339.3;
-      transition: stroke-dashoffset 0.4s ease;
+      stroke-dasharray: 345.4;
+      stroke-dashoffset: 345.4;
+      transition: stroke-dashoffset 0.3s ease, stroke 0.4s ease;
     }
-    .ring-pct {
-      position: absolute; inset: 0;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      font-family: 'DM Mono', monospace;
-      font-size: 26px; font-weight: 500; color: #fff;
-    }
-    .ring-pct-sub { font-family: 'DM Sans', sans-serif; font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+    .ring-fill.success { stroke: #4a8c4a; }
+    .ring-fill.error   { stroke: #c0392b; }
 
-    .upload-step {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 13px; color: rgba(255,255,255,0.7);
-      text-align: center; letter-spacing: 0.02em;
+    .ring-center {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 2px;
     }
-    .upload-warning {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 11px; color: rgba(255,255,255,0.35);
-      text-align: center; padding: 0 32px; line-height: 1.6;
+    .ring-pct  { font-family: 'DM Mono', monospace; font-size: 30px; font-weight: 500; color: #fff; line-height: 1; transition: color 0.4s; }
+    .ring-pct.success { color: #4a8c4a; }
+    .ring-pct.error   { color: #c0392b; }
+    .ring-icon { font-size: 34px; display: none; }
+
+    .upload-step { font-size: 13px; color: rgba(255,255,255,0.7); text-align: center; min-height: 20px; transition: color 0.4s; }
+    .upload-step.success { color: #4a8c4a; font-weight: 500; font-size: 15px; }
+    .upload-step.error   { color: #e57373; font-weight: 500; font-size: 15px; }
+
+    .upload-warning { font-size: 11px; color: rgba(255,255,255,0.3); text-align: center; padding: 0 32px; line-height: 1.6; transition: opacity 0.5s; }
+
+    .retry-btn {
+      display: none; padding: 11px 28px; border-radius: 8px;
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      color: #fff; font-size: 13px; font-weight: 500;
+      font-family: 'DM Sans', sans-serif; cursor: pointer;
     }
   </style>
 </head>
@@ -274,17 +275,18 @@
 <!-- Overlay plein écran pendant l'envoi -->
 <div class="upload-overlay" id="uploadOverlay">
   <div class="ring-wrap">
-    <svg width="130" height="130" viewBox="0 0 130 130">
-      <circle class="ring-bg" cx="65" cy="65" r="54"/>
-      <circle class="ring-fill" id="ringFill" cx="65" cy="65" r="54"/>
+    <svg width="150" height="150" viewBox="0 0 150 150">
+      <circle class="ring-bg"   cx="75" cy="75" r="55"/>
+      <circle class="ring-fill" id="ringFill" cx="75" cy="75" r="55"/>
     </svg>
-    <div class="ring-pct">
-      <span id="ringPct">0%</span>
-      <span class="ring-pct-sub" id="ringStep">Préparation…</span>
+    <div class="ring-center">
+      <span class="ring-pct"  id="ringPct">0%</span>
+      <span class="ring-icon" id="ringIcon"></span>
     </div>
   </div>
-  <div class="upload-step" id="uploadStep">Envoi en cours…</div>
-  <div class="upload-warning">⚠️ Ne fermez pas cette page<br>avant la fin de l'envoi</div>
+  <div class="upload-step"    id="uploadStep">Préparation…</div>
+  <div class="upload-warning" id="uploadWarning">⚠️ Ne fermez pas cette page<br>avant la fin de l'envoi</div>
+  <button class="retry-btn"   id="retryBtn" onclick="hideOverlay()">Fermer et réessayer</button>
 </div>
 
 <script>
@@ -541,70 +543,93 @@
     CONFIG.driveEndpoint ? sendToDrive() : simulateSend();
   }
 
-  // Circonférence du cercle (2π × 54)
-  const CIRCUMFERENCE = 2 * Math.PI * 54;
+  const CIRC = 2 * Math.PI * 55;
+  const STEPS = ['Préparation des données…','Envoi des photos…','Transfert vers Drive…','Mise à jour du Sheets…'];
+  let uploadAnimIv = null;
+  let uploadPct = 0;
 
-  function setProgress(pct, stepText) {
-    const p = Math.min(100, Math.max(0, pct));
-    // Cercle
-    const offset = CIRCUMFERENCE - (p / 100) * CIRCUMFERENCE;
-    document.getElementById('ringFill').style.strokeDashoffset = offset;
-    document.getElementById('ringPct').textContent = Math.round(p) + '%';
-    // Barre fine sous le formulaire
-    document.getElementById('progFill').style.width = p + '%';
-    if (stepText) {
-      document.getElementById('ringStep').textContent = stepText;
-      document.getElementById('uploadStep').textContent = stepText;
+  function setRing(pct, state) {
+    const fill  = document.getElementById('ringFill');
+    const pctEl = document.getElementById('ringPct');
+    const icon  = document.getElementById('ringIcon');
+    fill.style.strokeDashoffset = CIRC - (pct / 100) * CIRC;
+    fill.className  = 'ring-fill' + (state ? ' '+state : '');
+    pctEl.className = 'ring-pct'  + (state ? ' '+state : '');
+    document.getElementById('progFill').style.width = pct + '%';
+    if (state === 'success' || state === 'error') {
+      pctEl.style.display = 'none'; icon.style.display = 'block';
+      icon.textContent = state === 'success' ? '✓' : '✗';
+      icon.style.color = state === 'success' ? '#4a8c4a' : '#c0392b';
+    } else {
+      pctEl.style.display = 'block'; icon.style.display = 'none';
+      pctEl.textContent = Math.round(pct) + '%';
     }
   }
 
+  function setStep(text, state) {
+    const el = document.getElementById('uploadStep');
+    el.textContent = text;
+    el.className   = 'upload-step' + (state ? ' '+state : '');
+  }
+
   function showOverlay() {
-    setProgress(0, 'Préparation…');
+    uploadPct = 0;
+    setRing(0); setStep('Préparation…');
+    document.getElementById('retryBtn').style.display      = 'none';
+    document.getElementById('uploadWarning').style.display = 'block';
+    document.getElementById('uploadWarning').style.opacity = '1';
     document.getElementById('uploadOverlay').classList.add('visible');
-    // Empêcher le scroll en arrière-plan
     document.body.style.overflow = 'hidden';
   }
 
   function hideOverlay() {
+    clearInterval(uploadAnimIv);
     document.getElementById('uploadOverlay').classList.remove('visible');
     document.body.style.overflow = '';
+    setRing(0); setStep('Préparation…');
+    document.getElementById('ringFill').className = 'ring-fill';
+    document.getElementById('ringPct').style.display = 'block';
+    document.getElementById('ringIcon').style.display = 'none';
   }
 
-  function simulateSend(){
-    const btn=document.getElementById('sendBtn'), done=document.getElementById('doneMsg');
-    btn.classList.add('loading'); done.style.display='none';
+  function simulateSend() {
+    const btn = document.getElementById('sendBtn');
+    const done = document.getElementById('doneMsg');
+    btn.classList.add('loading'); done.style.display = 'none';
     showOverlay();
-    const steps=['Compression des images…','Création du dossier Drive…','Envoi des photos…','Mise à jour du Sheets…','Finalisation…'];
-    let p=0, si=0;
-    const iv=setInterval(()=>{
-      p+=Math.random()*11+4;
-      if(p>=100){
-        p=100; clearInterval(iv);
-        setProgress(100, 'Envoyé !');
-        setTimeout(()=>{
-          hideOverlay();
-          btn.classList.remove('loading');
-          done.style.display='block';
-          setTimeout(resetForm, 5000);
-        }, 800);
-      } else {
-        const ni=Math.floor((p/100)*steps.length);
-        if(ni!==si && ni<steps.length){ si=ni; }
-        setProgress(p, steps[si]);
+    let stepIdx = 0;
+    uploadAnimIv = setInterval(() => {
+      if (uploadPct < 100) {
+        const remaining = 100 - uploadPct;
+        uploadPct += Math.min(remaining * 0.07 + 0.5, 6);
+        uploadPct = Math.min(uploadPct, 100);
+        const ni = Math.floor((uploadPct / 100) * STEPS.length);
+        if (ni !== stepIdx && ni < STEPS.length) { stepIdx = ni; setStep(STEPS[stepIdx]); }
+        setRing(uploadPct);
+        if (uploadPct >= 100) {
+          clearInterval(uploadAnimIv);
+          setRing(100, 'success');
+          setStep('Envoyé avec succès !', 'success');
+          document.getElementById('uploadWarning').style.opacity = '0';
+          setTimeout(() => {
+            hideOverlay();
+            btn.classList.remove('loading');
+            done.style.display = 'block';
+            setTimeout(resetForm, 5000);
+          }, 2000);
+        }
       }
-    }, 220);
+    }, 80);
   }
 
-  async function sendToDrive(){
-    const btn=document.getElementById('sendBtn'), done=document.getElementById('doneMsg');
-    const banner=document.getElementById('validationBanner');
-    btn.classList.add('loading'); done.style.display='none'; banner.style.display='none';
+  async function sendToDrive() {
+    const btn    = document.getElementById('sendBtn');
+    const done   = document.getElementById('doneMsg');
+    const banner = document.getElementById('validationBanner');
+    btn.classList.add('loading'); done.style.display = 'none'; banner.style.display = 'none';
     showOverlay();
-    setProgress(5, 'Préparation des données…');
-
-    const payload={
-      projet:   CONFIG.projet,
-      date:     new Date().toLocaleString('fr-FR'),
+    const payload = {
+      projet:   CONFIG.projet, date: new Date().toLocaleString('fr-FR'),
       prenom:   document.getElementById('prenom').value,
       nom:      document.getElementById('nom').value,
       tel:      document.getElementById('tel').value,
@@ -613,49 +638,48 @@
       immat:    document.getElementById('immat').value,
       loueur:   document.getElementById('loueur').value,
       remarque: document.getElementById('remarque').value,
-      photos:   photoData,
-      extras:   extraPhotos,
+      photos:   photoData, extras: extraPhotos,
     };
-
-    // Simulation de progression pendant l'envoi réel
-    let fakeP = 5;
-    const fakeSteps = ['Envoi des données…','Transfert des photos…','Création du dossier…','Mise à jour du Sheets…'];
-    let fsi = 0;
-    const fakeIv = setInterval(()=>{
-      if(fakeP < 85) {
-        fakeP += Math.random() * 4 + 1;
-        const ni = Math.floor(((fakeP-5)/80)*fakeSteps.length);
-        if(ni !== fsi && ni < fakeSteps.length){ fsi=ni; }
-        setProgress(fakeP, fakeSteps[fsi]);
+    let stepIdx = 0;
+    uploadAnimIv = setInterval(() => {
+      if (uploadPct < 95) {
+        const remaining = 95 - uploadPct;
+        uploadPct += Math.min(remaining * 0.04 + 0.3, 3);
+        uploadPct = Math.min(uploadPct, 95);
+        const ni = Math.floor((uploadPct / 95) * STEPS.length);
+        if (ni !== stepIdx && ni < STEPS.length) { stepIdx = ni; setStep(STEPS[stepIdx]); }
+        setRing(uploadPct);
       }
-    }, 300);
-
-    try{
-      const res=await fetch(CONFIG.driveEndpoint,{method:'POST',body:JSON.stringify(payload)});
-      const json=await res.json();
-      clearInterval(fakeIv);
-      if(json.status==='ok'){
-        setProgress(100, 'Envoyé avec succès !');
-        setTimeout(()=>{
-          hideOverlay();
-          done.style.display='block';
-          setTimeout(resetForm, 5000);
-        }, 800);
+    }, 200);
+    try {
+      const res  = await fetch(CONFIG.driveEndpoint, {method:'POST', body:JSON.stringify(payload)});
+      const json = await res.json();
+      clearInterval(uploadAnimIv);
+      if (json.status === 'ok') {
+        let p = uploadPct;
+        const toHundred = setInterval(() => {
+          p += 2; if (p >= 100) {
+            p = 100; clearInterval(toHundred);
+            setRing(100, 'success');
+            setStep('Envoyé avec succès !', 'success');
+            document.getElementById('uploadWarning').style.opacity = '0';
+            setTimeout(() => { hideOverlay(); btn.classList.remove('loading'); done.style.display = 'block'; setTimeout(resetForm, 5000); }, 2000);
+          } else { setRing(p); }
+        }, 30);
       } else {
-        hideOverlay();
-        setProgress(0);
-        banner.style.display='block';
-        banner.innerHTML='❌ Erreur lors de l\'envoi. Veuillez réessayer ou contacter le support.';
-        banner.scrollIntoView({behavior:'smooth',block:'center'});
+        clearInterval(uploadAnimIv);
+        setRing(uploadPct, 'error');
+        setStep('Échec de l\'envoi', 'error');
+        document.getElementById('uploadWarning').style.display = 'none';
+        document.getElementById('retryBtn').style.display = 'block';
+        btn.classList.remove('loading');
       }
-    }catch(e){
-      clearInterval(fakeIv);
-      hideOverlay();
-      setProgress(0);
-      banner.style.display='block';
-      banner.innerHTML='❌ Connexion impossible. Vérifiez votre réseau et réessayez.';
-      banner.scrollIntoView({behavior:'smooth',block:'center'});
-    }finally{
+    } catch(e) {
+      clearInterval(uploadAnimIv);
+      setRing(uploadPct, 'error');
+      setStep('Connexion impossible', 'error');
+      document.getElementById('uploadWarning').style.display = 'none';
+      document.getElementById('retryBtn').style.display = 'block';
       btn.classList.remove('loading');
     }
   }
